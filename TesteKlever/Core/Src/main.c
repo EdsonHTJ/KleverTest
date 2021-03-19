@@ -46,6 +46,7 @@
 
 /* Private variables ---------------------------------------------------------*/
 ADC_HandleTypeDef hadc1;
+DMA_HandleTypeDef hdma_adc1;
 
 UART_HandleTypeDef huart2;
 
@@ -57,13 +58,18 @@ osMessageQId AdcReadsQueueHandle;
 osMessageQId LedQueueHandle;
 osMessageQId UsartQueueHandle;
 osSemaphoreId BinarySemaphoteUARTHandle;
+osSemaphoreId BinarySemaphoreADCHandle;
+osSemaphoreId BinarySemaphoreDmaADCHandle;
 /* USER CODE BEGIN PV */
+
+uint32_t ADC_read;
 
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
+static void MX_DMA_Init(void);
 static void MX_USART2_UART_Init(void);
 static void MX_ADC1_Init(void);
 void StartDefaultTask(void const * argument);
@@ -109,6 +115,7 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
+  MX_DMA_Init();
   MX_USART2_UART_Init();
   MX_ADC1_Init();
   /* USER CODE BEGIN 2 */
@@ -123,6 +130,14 @@ int main(void)
   /* definition and creation of BinarySemaphoteUART */
   osSemaphoreDef(BinarySemaphoteUART);
   BinarySemaphoteUARTHandle = osSemaphoreCreate(osSemaphore(BinarySemaphoteUART), 1);
+
+  /* definition and creation of BinarySemaphoreADC */
+  osSemaphoreDef(BinarySemaphoreADC);
+  BinarySemaphoreADCHandle = osSemaphoreCreate(osSemaphore(BinarySemaphoreADC), 1);
+
+  /* definition and creation of BinarySemaphoreDmaADC */
+  osSemaphoreDef(BinarySemaphoreDmaADC);
+  BinarySemaphoreDmaADCHandle = osSemaphoreCreate(osSemaphore(BinarySemaphoreDmaADC), 1);
 
   /* USER CODE BEGIN RTOS_SEMAPHORES */
   /* add semaphores, ... */
@@ -252,15 +267,15 @@ static void MX_ADC1_Init(void)
   hadc1.Instance = ADC1;
   hadc1.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV4;
   hadc1.Init.Resolution = ADC_RESOLUTION_12B;
-  hadc1.Init.ScanConvMode = DISABLE;
+  hadc1.Init.ScanConvMode = ENABLE;
   hadc1.Init.ContinuousConvMode = DISABLE;
   hadc1.Init.DiscontinuousConvMode = DISABLE;
   hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
   hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
   hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
   hadc1.Init.NbrOfConversion = 1;
-  hadc1.Init.DMAContinuousRequests = DISABLE;
-  hadc1.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
+  hadc1.Init.DMAContinuousRequests = ENABLE;
+  hadc1.Init.EOCSelection = ADC_EOC_SEQ_CONV;
   if (HAL_ADC_Init(&hadc1) != HAL_OK)
   {
     Error_Handler();
@@ -313,6 +328,22 @@ static void MX_USART2_UART_Init(void)
 
 }
 
+/** 
+  * Enable DMA controller clock
+  */
+static void MX_DMA_Init(void) 
+{
+
+  /* DMA controller clock enable */
+  __HAL_RCC_DMA2_CLK_ENABLE();
+
+  /* DMA interrupt init */
+  /* DMA2_Stream0_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA2_Stream0_IRQn, 5, 0);
+  HAL_NVIC_EnableIRQ(DMA2_Stream0_IRQn);
+
+}
+
 /**
   * @brief GPIO Initialization Function
   * @param None
@@ -353,6 +384,11 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart){
 	if(huart->Instance==USART2){
 			osSemaphoreRelease(BinarySemaphoteUARTHandle);
 	}
+
+}
+void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
+{
+	osSemaphoreRelease(BinarySemaphoreDmaADCHandle);
 
 }
 /* USER CODE END 4 */
@@ -417,6 +453,9 @@ void StartUsartTask(void const * argument)
 		     uint8_t command;
 		     uint8_t response[255];
 		     uint8_t response_size;
+		     uint16_t Adc_Queue_read;
+		     uint8_t AdcMSB;
+		     uint8_t AdcLSB;
 		 	 switch (data[1]){
 		 	 	 case 0x01:
 		 	 		 //Turn on LED
@@ -426,7 +465,7 @@ void StartUsartTask(void const * argument)
 		 	 		 response[1] = data[1];
 		 	 		 response[2] = 0x01;
 		 	 		 response[3] = ACK;
-		 	 	     response[4] = response[0] + response[1] + response[2] + response[3] + response[4];
+		 	 	     response[4] = response[0] + response[1] + response[2] + response[3];
 		 	 	     response_size= 5;
 		 	 		 break;
 		 	 	 case 0x02:
@@ -437,7 +476,7 @@ void StartUsartTask(void const * argument)
 		 	         response[1] = data[1];
 		 	 		 response[2] = 0x01;
 		 	 	     response[3] = ACK;
-		 	 		 response[4] = response[0] + response[1] + response[2] + response[3] + response[4];
+		 	 		 response[4] = response[0] + response[1] + response[2] + response[3];
 		 	 		 response_size= 5;
 		 	 	     break;
 		 	 	case 0x03:
@@ -448,7 +487,7 @@ void StartUsartTask(void const * argument)
 		 	 	     response[1] = data[1];
 		 	 		 response[2] = 0x01;
 		 	 		 response[3] = ACK;
-		 	 		 response[4] = response[0] + response[1] + response[2] + response[3] + response[4];
+		 	 		 response[4] = response[0] + response[1] + response[2] + response[3];
 		 	 		 response_size= 5;
 		 	 	     break;
 		 	 	case 0x04:
@@ -457,6 +496,22 @@ void StartUsartTask(void const * argument)
 		 	 		 }
 		 	 		 response_size = 4;
 		 	 		 break;
+		 	 	case 0x05:
+		 	 		osSemaphoreRelease(BinarySemaphoreADCHandle);
+		 	 		xQueueReceive(AdcReadsQueueHandle, &Adc_Queue_read, osWaitForever);
+		 	 		AdcMSB = Adc_Queue_read >> 8;
+		 	 		AdcLSB = Adc_Queue_read & 0xFF;
+
+		 	 		response[0] = 0x01;
+		 	 		response[1] = data[1];
+		 	 		response[2] = 0x02;
+		 	 		response[3] = AdcMSB;
+		 	 		response[4] = AdcLSB;
+		 	 		response[5] = response[0] + response[1] + response[2] + response[3] + response[4];
+		 	 		response_size = 6;
+
+
+
 		 	 }
 		     HAL_UART_Transmit_IT(&huart2, response, response_size);
 	 }
@@ -512,9 +567,21 @@ void StartAdcTask(void const * argument)
 {
   /* USER CODE BEGIN StartAdcTask */
   /* Infinite loop */
+
+
+
   for(;;)
   {
-    osDelay(1000);
+    osSemaphoreWait(BinarySemaphoreADCHandle, osWaitForever);
+
+
+
+	HAL_ADC_Start_DMA(&hadc1, &ADC_read, 1);
+	osSemaphoreWait(BinarySemaphoreDmaADCHandle, osWaitForever);
+	uint32_t ADCRT = ADC_read;
+	xQueueSend(AdcReadsQueueHandle,&ADC_read,osWaitForever);
+
+    osDelay(10);
   }
   /* USER CODE END StartAdcTask */
 }
