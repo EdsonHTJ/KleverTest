@@ -8,7 +8,7 @@ main.c:382:6:HAL_UART_RxCpltCallback	16	static
 main.c:389:6:HAL_ADC_ConvCpltCallback	16	static
 main.c:403:6:StartDefaultTask	16	static
 main.c:422:6:StartUsartTask	312	static
-main.c:534:6:StartLedTask	24	static
-main.c:566:6:StartAdcTask	24	static
-main.c:597:6:HAL_TIM_PeriodElapsedCallback	16	static
-main.c:614:6:Error_Handler	4	static
+main.c:541:6:StartLedTask	24	static
+main.c:573:6:StartAdcTask	24	static
+main.c:604:6:HAL_TIM_PeriodElapsedCallback	16	static
+main.c:621:6:Error_Handler	4	static

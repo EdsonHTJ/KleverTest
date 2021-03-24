@@ -426,8 +426,14 @@ void StartUsartTask(void const * argument)
   for(;;)
   {
 	 uint8_t data[requestSize];
+
 	 osSemaphoreWait(BinarySemaphoteUARTHandle, osWaitForever);
 	 HAL_UART_Receive_IT(&huart2, data , requestSize);
+
+
+
+
+
 	 if(data[0] != 0x01){
 
 			 uint8_t response [5];
@@ -514,6 +520,7 @@ void StartUsartTask(void const * argument)
 
 		 	 }
 		     HAL_UART_Transmit_IT(&huart2, response, response_size);
+
 	 }
 
 
@@ -578,7 +585,6 @@ void StartAdcTask(void const * argument)
 
 	HAL_ADC_Start_DMA(&hadc1, &ADC_read, 1);
 	osSemaphoreWait(BinarySemaphoreDmaADCHandle, osWaitForever);
-	uint32_t ADCRT = ADC_read;
 	xQueueSend(AdcReadsQueueHandle,&ADC_read,osWaitForever);
 
     osDelay(10);

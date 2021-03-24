@@ -1207,11 +1207,11 @@ void StartUsartTask(void const * argument)
  8000a14:	af00      	add	r7, sp, #0
  8000a16:	1d3b      	adds	r3, r7, #4
  8000a18:	6018      	str	r0, [r3, #0]
-  /* USER CODE BEGIN StartUsartTask */
   /* Infinite loop */
   for(;;)
   {
 	 uint8_t data[requestSize];
+
 	 osSemaphoreWait(BinarySemaphoteUARTHandle, osWaitForever);
  8000a1a:	4bcf      	ldr	r3, [pc, #828]	; (8000d58 <StartUsartTask+0x348>)
  8000a1c:	681b      	ldr	r3, [r3, #0]
@@ -1224,6 +1224,11 @@ void StartUsartTask(void const * argument)
  8000a2e:	4619      	mov	r1, r3
  8000a30:	48ca      	ldr	r0, [pc, #808]	; (8000d5c <StartUsartTask+0x34c>)
  8000a32:	f002 fd51 	bl	80034d8 <HAL_UART_Receive_IT>
+
+
+
+
+
 	 if(data[0] != 0x01){
  8000a36:	f897 3120 	ldrb.w	r3, [r7, #288]	; 0x120
  8000a3a:	2b01      	cmp	r3, #1
@@ -1584,6 +1589,7 @@ void StartUsartTask(void const * argument)
  8000d46:	4619      	mov	r1, r3
  8000d48:	4804      	ldr	r0, [pc, #16]	; (8000d5c <StartUsartTask+0x34c>)
  8000d4a:	f002 fb80 	bl	800344e <HAL_UART_Transmit_IT>
+
 	 }
 
 
